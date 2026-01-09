@@ -35,16 +35,16 @@ import Sales from './components/Sales';
 import Settings from './components/Settings';
 
 const STORAGE_KEYS = {
-  INVENTORY: 'whatsapp_crm_inventory_v2',
-  SHIPPING: 'whatsapp_crm_shipping_v2',
-  ORDERS: 'whatsapp_crm_orders_v2',
-  APP_NAME: 'whatsapp_crm_name_v2'
+  INVENTORY: 'whatsapp_crm_inventory_v3', // Changed version to force fresh load
+  SHIPPING: 'whatsapp_crm_shipping_v3',
+  ORDERS: 'whatsapp_crm_orders_v3',
+  APP_NAME: 'whatsapp_crm_name_v3'
 };
 
 const SAMPLE_INVENTORY: Product[] = [
-  { id: '1', code: 'TSH-001', name: 'تيشيرت صيفي قطن مصري', price: 250, sizes: ['M', 'L', 'XL'], colors: ['أسود', 'أبيض'], isAvailable: true },
-  { id: '2', code: 'PNTS-02', name: 'بنطلون جينز ليكرا أزرق', price: 450, sizes: ['32', '34', '36'], colors: ['أزرق'], isAvailable: true },
-  { id: '3', code: 'SH-05', name: 'قميص كتان بيج', price: 380, sizes: ['L', 'XL', 'XXL'], colors: ['بيج'], isAvailable: true }
+  { id: '1', code: 'TSH-001', name: 'تيشيرت صيفي قطن مصري فاخر', price: 250, sizes: ['M', 'L', 'XL'], colors: ['أسود', 'أبيض'], isAvailable: true },
+  { id: '2', code: 'PNTS-02', name: 'بنطلون جينز ليكرا أزرق غامق', price: 450, sizes: ['32', '34', '36'], colors: ['أزرق'], isAvailable: true },
+  { id: '3', code: 'SH-05', name: 'قميص كتان بيج كاجوال', price: 380, sizes: ['L', 'XL', 'XXL'], colors: ['بيج'], isAvailable: true }
 ];
 
 const DEFAULT_SHIPPING = EGYPT_GOVERNORATES.map(gov => ({ 
@@ -55,51 +55,69 @@ const DEFAULT_SHIPPING = EGYPT_GOVERNORATES.map(gov => ({
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.DASHBOARD);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [appName, setAppName] = useState(() => localStorage.getItem(STORAGE_KEYS.APP_NAME) || 'واتساب ذكي بلس');
+  const [appName, setAppName] = useState('واتساب ذكي بلس');
   const [isWAConnected, setIsWAConnected] = useState(false);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   
-  // App Data State with fallback logic
-  const [inventory, setInventory] = useState<Product[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.INVENTORY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) { console.error("Error loading inventory", e); }
-    return SAMPLE_INVENTORY;
-  });
+  // Data State with initial empty arrays
+  const [inventory, setInventory] = useState<Product[]>([]);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  const [shippingRates, setShippingRates] = useState<ShippingRate[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SHIPPING);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) { console.error("Error loading shipping", e); }
-    return DEFAULT_SHIPPING;
-  });
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) { console.error("Error loading orders", e); }
-    return [];
-  });
-
-  // Persist data on change
+  // Initial Data Hydration from LocalStorage with Fallbacks
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+    try {
+      // 1. App Name
+      const savedName = localStorage.getItem(STORAGE_KEYS.APP_NAME);
+      if (savedName) setAppName(savedName);
+
+      // 2. Inventory
+      const savedInv = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+      if (savedInv) {
+        const parsed = JSON.parse(savedInv);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setInventory(parsed);
+        } else {
+          setInventory(SAMPLE_INVENTORY);
+        }
+      } else {
+        setInventory(SAMPLE_INVENTORY);
+      }
+
+      // 3. Shipping
+      const savedShipping = localStorage.getItem(STORAGE_KEYS.SHIPPING);
+      if (savedShipping) {
+        const parsed = JSON.parse(savedShipping);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setShippingRates(parsed);
+        } else {
+          setShippingRates(DEFAULT_SHIPPING);
+        }
+      } else {
+        setShippingRates(DEFAULT_SHIPPING);
+      }
+
+      // 4. Orders
+      const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
+      if (savedOrders) {
+        const parsed = JSON.parse(savedOrders);
+        if (Array.isArray(parsed)) setOrders(parsed);
+      }
+    } catch (e) {
+      console.error("Critical error loading data:", e);
+      // Absolute fallback if everything fails
+      setInventory(SAMPLE_INVENTORY);
+      setShippingRates(DEFAULT_SHIPPING);
+    }
+  }, []);
+
+  // Persist data on every change
+  useEffect(() => {
+    if (inventory.length > 0) localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
   }, [inventory]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SHIPPING, JSON.stringify(shippingRates));
+    if (shippingRates.length > 0) localStorage.setItem(STORAGE_KEYS.SHIPPING, JSON.stringify(shippingRates));
   }, [shippingRates]);
 
   useEffect(() => {
@@ -110,17 +128,15 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEYS.APP_NAME, appName);
   }, [appName]);
 
-  // Fix: Added toggleSidebar function to handle sidebar state changes
-  const toggleSidebar = useCallback(() => {
-    setSidebarOpen(prev => !prev);
-  }, []);
+  const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
 
   const resetAllData = () => {
     if (window.confirm("هل أنت متأكد من مسح جميع البيانات واستعادة الإعدادات الافتراضية؟")) {
+      localStorage.clear();
       setInventory(SAMPLE_INVENTORY);
       setShippingRates(DEFAULT_SHIPPING);
       setOrders([]);
-      localStorage.clear();
+      alert("تمت استعادة البيانات بنجاح");
       window.location.reload();
     }
   };
@@ -129,11 +145,16 @@ const App: React.FC = () => {
     setIsCheckingConnection(true);
     setTimeout(() => {
       setIsCheckingConnection(false);
-      if (!isWAConnected) setIsWAConnected(true);
-    }, 1500);
+      setIsWAConnected(true);
+    }, 1200);
   };
 
   const renderContent = () => {
+    // Safety check for empty or undefined data
+    const safeInventory = inventory || [];
+    const safeShipping = shippingRates || [];
+    const safeOrders = orders || [];
+
     switch (activePage) {
       case Page.DASHBOARD:
         return (
@@ -142,28 +163,28 @@ const App: React.FC = () => {
               <h1 className="text-2xl font-bold">لوحة التحكم</h1>
               <button 
                 onClick={resetAllData}
-                className="text-xs text-red-500 flex items-center gap-1 hover:underline"
+                className="text-xs text-red-500 flex items-center gap-1 hover:underline bg-red-50 px-3 py-1.5 rounded-lg"
               >
-                <Database size={12} /> استعادة البيانات الافتراضية
+                <Database size={12} /> تصفير البيانات وإصلاح النظام
               </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <DashboardCard 
                 title="إجمالي الطلبات" 
-                value={orders.length} 
+                value={safeOrders.length} 
                 icon={<ShoppingCart className="w-8 h-8 text-blue-500" />} 
                 color="bg-blue-50"
               />
               <DashboardCard 
                 title="مبيعات اليوم" 
-                value={`${orders.filter(o => o.status === 'approved' || o.status === 'delivered').reduce((acc, curr) => acc + curr.totalAmount, 0)} ج.م`} 
+                value={`${safeOrders.filter(o => o.status === 'approved' || o.status === 'delivered').reduce((acc, curr) => acc + curr.totalAmount, 0)} ج.م`} 
                 icon={<BarChart3 className="w-8 h-8 text-green-500" />} 
                 color="bg-green-50"
               />
               <DashboardCard 
                 title="الأصناف المتوفرة" 
-                value={inventory.filter(p => p.isAvailable).length} 
+                value={safeInventory.filter(p => p.isAvailable).length} 
                 icon={<Package className="w-8 h-8 text-purple-500" />} 
                 color="bg-purple-50"
               />
@@ -175,55 +196,41 @@ const App: React.FC = () => {
               />
             </div>
 
-            {inventory.length === 0 && (
-              <div className="mt-6 bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3 text-amber-800">
+            {safeInventory.length === 0 && (
+              <div className="mt-6 bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3 text-amber-800 animate-pulse">
                 <AlertCircle />
-                <p className="text-sm font-bold">تنبيه: لا توجد أصناف في المخزن حالياً. يرجى إضافة أصناف من قائمة "إدارة الأصناف".</p>
+                <p className="text-sm font-bold">تنبيه: لا توجد أصناف ظاهرة حالياً. يرجى الضغط على زر "تصفير البيانات" بالأعلى لإظهار البيانات التجريبية.</p>
               </div>
             )}
             
             <div className="mt-8 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-              <h2 className="text-lg font-bold mb-4">اتصال النظام والذكاء الاصطناعي</h2>
+              <h2 className="text-lg font-bold mb-4">اتصال حساب واتساب</h2>
               {!isWAConnected ? (
                 <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-200 rounded-lg">
                   <Smartphone className="w-16 h-16 text-gray-300 mb-4" />
-                  <p className="text-gray-500 mb-4 text-center">قم بربط حساب واتساب الخاص بك لتفعيل الردود الاحترافية</p>
+                  <p className="text-gray-500 mb-4 text-center">اربط حسابك لتفعيل الرد التلقائي الذكي على العملاء</p>
                   <button 
                     onClick={() => setIsWAConnected(true)}
-                    className="bg-emerald-600 text-white px-8 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-100"
+                    className="bg-emerald-600 text-white px-8 py-3 rounded-xl hover:bg-emerald-700 transition-all font-bold shadow-lg"
                   >
                     تفعيل الربط الآن
                   </button>
                 </div>
               ) : (
                 <div className="flex flex-col md:flex-row items-center justify-between p-6 bg-emerald-50 rounded-2xl text-emerald-700 border border-emerald-100">
-                  <div className="flex items-center gap-4 mb-4 md:mb-0">
-                    <div className="relative">
-                       <CheckCircle2 className="w-10 h-10" />
-                       <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                       </span>
-                    </div>
+                  <div className="flex items-center gap-4">
+                    <CheckCircle2 className="w-10 h-10" />
                     <div>
-                      <span className="font-bold text-lg block">النظام متصل وشغال 100%</span>
-                      <span className="text-sm opacity-80">الذكاء الاصطناعي جاهز للرد على العملاء فوراً</span>
+                      <span className="font-bold text-lg block">النظام متصل (Online)</span>
+                      <span className="text-sm opacity-80">الذكاء الاصطناعي يراقب الدردشات الآن</span>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button 
-                      onClick={checkConnection}
-                      disabled={isCheckingConnection}
-                      className="flex items-center gap-2 bg-white border border-emerald-200 text-emerald-600 px-4 py-2 rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw size={18} className={isCheckingConnection ? "animate-spin" : ""} />
-                      {isCheckingConnection ? "جاري الفحص..." : "فحص الاتصال"}
+                    <button onClick={checkConnection} className="bg-white text-emerald-600 px-4 py-2 rounded-lg border border-emerald-200 hover:bg-emerald-100">
+                      تحديث الحالة
                     </button>
-                    <button 
-                      onClick={() => setIsWAConnected(false)}
-                      className="text-red-600 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      قطع الاتصال
+                    <button onClick={() => setIsWAConnected(false)} className="text-red-500 px-4 py-2 hover:bg-red-50 rounded-lg">
+                      فصل الربط
                     </button>
                   </div>
                 </div>
@@ -232,15 +239,15 @@ const App: React.FC = () => {
           </div>
         );
       case Page.INVENTORY:
-        return <Inventory inventory={inventory} setInventory={setInventory} />;
+        return <Inventory inventory={safeInventory} setInventory={setInventory} />;
       case Page.SHIPPING:
-        return <Shipping rates={shippingRates} setRates={setShippingRates} />;
+        return <Shipping rates={safeShipping} setRates={setShippingRates} />;
       case Page.AI_CHAT:
-        return <AIChat inventory={inventory} shipping={shippingRates} orders={orders} setOrders={setOrders} />;
+        return <AIChat inventory={safeInventory} shipping={safeShipping} orders={safeOrders} setOrders={setOrders} />;
       case Page.ORDERS:
-        return <Orders orders={orders} setOrders={setOrders} />;
+        return <Orders orders={safeOrders} setOrders={setOrders} />;
       case Page.SALES:
-        return <Sales orders={orders} />;
+        return <Sales orders={safeOrders} />;
       case Page.SETTINGS:
         return <Settings appName={appName} setAppName={setAppName} />;
       default:
@@ -274,14 +281,7 @@ const App: React.FC = () => {
       </aside>
       <main className="flex-1 overflow-y-auto flex flex-col">
         <header className="bg-white h-16 border-b border-gray-200 flex items-center px-6 justify-between sticky top-0 z-10">
-          <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">
-            {activePage === Page.DASHBOARD && <LayoutDashboard className="text-emerald-500" size={20} />}
-            {activePage === Page.INVENTORY && <Package className="text-emerald-500" size={20} />}
-            {activePage === Page.SHIPPING && <Truck className="text-emerald-500" size={20} />}
-            {activePage === Page.AI_CHAT && <MessageSquare className="text-emerald-500" size={20} />}
-            {activePage === Page.ORDERS && <ShoppingCart className="text-emerald-500" size={20} />}
-            {activePage === Page.SALES && <BarChart3 className="text-emerald-500" size={20} />}
-            {activePage === Page.SETTINGS && <SettingsIcon className="text-emerald-500" size={20} />}
+          <h2 className="text-lg font-bold text-gray-700">
             <span className="hidden sm:inline">
               {activePage === Page.DASHBOARD && "الرئيسية"}
               {activePage === Page.INVENTORY && "إدارة الأصناف"}
@@ -293,10 +293,10 @@ const App: React.FC = () => {
             </span>
           </h2>
           <div className="flex items-center gap-3">
-            <button onClick={checkConnection} disabled={isCheckingConnection} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-emerald-600 transition-colors">
-              <RefreshCw size={20} className={isCheckingConnection ? "animate-spin text-emerald-500" : ""} />
+            <button onClick={checkConnection} disabled={isCheckingConnection} className="p-2 hover:bg-gray-100 rounded-lg">
+              <RefreshCw size={20} className={isCheckingConnection ? "animate-spin text-emerald-500" : "text-gray-400"} />
             </button>
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${isWAConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${isWAConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
               <span className={`w-2 h-2 rounded-full ${isWAConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
               {isWAConnected ? 'متصل' : 'منفصل'}
             </div>

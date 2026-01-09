@@ -2,7 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Product, ShippingRate, Order } from "../types";
 
-// Adding an interface to handle extracted data properties that don't map directly to the Order interface structure
 interface ExtractedOrderData {
   customerName?: string;
   customerPhone?: string;
@@ -14,13 +13,17 @@ interface ExtractedOrderData {
 }
 
 export class AIService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
   private model = "gemini-3-flash-preview";
 
   constructor() {
-    // API key must be obtained exclusively from process.env.API_KEY using named parameter
-    // The environment handles the actual key provided by the user.
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    try {
+      if (process.env.API_KEY) {
+        this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      }
+    } catch (e) {
+      console.warn("AI Initialization warning:", e);
+    }
   }
 
   async generateResponse(
@@ -28,31 +31,31 @@ export class AIService {
     inventory: Product[],
     shipping: ShippingRate[],
     currentMessage: string
-  ) {
-    const inventoryInfo = inventory
-      .map(p => `كود: ${p.code}, الاسم: ${p.name}, السعر: ${p.price} ج.م, المقاسات: ${p.sizes.join(",")}, الحالة: ${p.isAvailable ? 'متوفر' : 'غير متوفر حالياً'}`)
+  ): Promise<string> {
+    if (!this.ai) return "عذراً، نظام الذكاء الاصطناعي غير جاهز حالياً. يرجى التأكد من مفتاح الربط. 🌸";
+
+    const inventoryInfo = (inventory || [])
+      .map(p => `كود: ${p.code}, الاسم: ${p.name}, السعر: ${p.price} ج.م, المقاسات: ${(p.sizes || []).join(",")}, الحالة: ${p.isAvailable ? 'متوفر' : 'غير متوفر حالياً'}`)
       .join("\n");
     
-    const shippingInfo = shipping
+    const shippingInfo = (shipping || [])
       .map(s => `${s.governorate}: ${s.cost} ج.م`)
       .join("\n");
 
     const systemInstruction = `
       أنت مساعد مبيعات ذكي ومحترف لخدمة العملاء عبر واتساب.
-      يجب أن يكون أسلوبك:
-      - ودود للغاية (Friendly) ومرحب بالعملاء وكأنك صديق لهم.
-      - احترافي ومنظم (Professional) في عرض الأسعار والتفاصيل.
-      - استخدم إيموجي (Emojis) مناسبة (مثل 🌸، ✨، 🚚، 🛍️) لجعل المحادثة حيوية وودودة.
-      - تحدث بالعامية المصرية المهذبة أو العربية الفصحى البسيطة.
+      الأسلوب: ودود (Friendly)، احترافي (Professional)، يستخدم الرموز التعبيرية (Emojis).
 
-      مهامك الأساسية:
-      1. الرد على استفسارات المنتجات بناءً على هذه القائمة:
-      ${inventoryInfo}
-      2. إذا سأل العميل عن الشحن، اطلب منه المحافظة وأخبره بالتكلفة من القائمة التالية:
-      ${shippingInfo}
-      3. اطلب من العميل البيانات التالية لإتمام الطلب: (رقم الهاتف، العنوان بالتفصيل، كود الصنف أو اسمه، المقاس، واللون).
-      4. بمجرد استلام البيانات، قم بحساب الإجمالي (سعر المنتج + الشحن) وأكد للعميل أنه سيتم التواصل معه هاتفياً للتأكيد النهائي.
-      5. اجعل رسائلك قصيرة ومنسقة لتناسب تطبيق واتساب.
+      المعلومات المتاحة لك:
+      المنتجات:\n${inventoryInfo || "لا توجد منتجات حالياً"}
+      الشحن:\n${shippingInfo || "الشحن 50 لجميع المحافظات"}
+
+      الخطوات:
+      1. رحب بالعميل.
+      2. إذا سأل عن منتج، اعطه سعره وتفاصيله.
+      3. إذا طلب شحن، اسأله عن المحافظة واعطه السعر.
+      4. اطلب البيانات (تليفون، عنوان، كود، مقاس، لون).
+      5. احسب الإجمالي وأكد عليه أن المبيعات ستتواصل معه.
     `;
 
     try {
@@ -67,14 +70,15 @@ export class AIService {
           temperature: 0.8,
         }
       });
-      return response.text || "أهلاً بك! نعتذر عن هذا الخطأ البسيط، هل يمكنك إعادة إرسال طلبك؟ ✨";
+      return response.text || "أهلاً بك! كيف يمكنني مساعدتك اليوم؟ ✨";
     } catch (error) {
       console.error("AI Error:", error);
-      return "عذراً يا فندم، حصل ضغط على النظام حالياً. ثواني وهكون مع حضرتك! 🌸";
+      return "أهلاً بك يا فندم! براجع البيانات وهرد على حضرتك حالاً. 🌸";
     }
   }
 
   async extractOrderData(chatHistory: string): Promise<ExtractedOrderData | null> {
+    if (!this.ai) return null;
     try {
       const response = await this.ai.models.generateContent({
         model: this.model,
@@ -98,13 +102,11 @@ export class AIService {
       });
       
       const text = response.text;
-      if (text) {
-        return JSON.parse(text) as ExtractedOrderData;
-      }
+      return text ? JSON.parse(text) : null;
     } catch (error) {
       console.error("Extraction Error:", error);
+      return null;
     }
-    return null;
   }
 }
 
