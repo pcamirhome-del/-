@@ -1,0 +1,8 @@
+{
+  "name": "Smart WhatsApp CRM & AI Automator",
+  "description": "A comprehensive WhatsApp management tool with AI-powered customer support, inventory tracking, shipping cost calculation for Egypt, and order processing.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
