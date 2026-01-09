@@ -32,19 +32,61 @@ import Orders from './components/Orders';
 import Sales from './components/Sales';
 import Settings from './components/Settings';
 
+const STORAGE_KEYS = {
+  INVENTORY: 'whatsapp_crm_inventory',
+  SHIPPING: 'whatsapp_crm_shipping',
+  ORDERS: 'whatsapp_crm_orders',
+  APP_NAME: 'whatsapp_crm_name'
+};
+
 const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>(Page.DASHBOARD);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [appName, setAppName] = useState('واتساب ذكي بلس');
+  const [appName, setAppName] = useState(() => localStorage.getItem(STORAGE_KEYS.APP_NAME) || 'واتساب ذكي بلس');
   const [isWAConnected, setIsWAConnected] = useState(false);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   
-  // App Data State
-  const [inventory, setInventory] = useState<Product[]>([]);
-  const [shippingRates, setShippingRates] = useState<ShippingRate[]>(
-    EGYPT_GOVERNORATES.map(gov => ({ governorate: gov, cost: 50 }))
-  );
-  const [orders, setOrders] = useState<Order[]>([]);
+  // App Data State with LocalStorage Initialization
+  const [inventory, setInventory] = useState<Product[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+    if (saved) return JSON.parse(saved);
+    // Initial Sample Data
+    return [
+      { id: '1', code: 'TSH-001', name: 'تيشيرت صيفي قطن', price: 250, sizes: ['M', 'L', 'XL'], colors: ['أسود', 'أبيض'], isAvailable: true },
+      { id: '2', code: 'PNTS-02', name: 'بنطلون جينز ليكرا', price: 450, sizes: ['32', '34', '36'], colors: ['أزرق'], isAvailable: true }
+    ];
+  });
+
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SHIPPING);
+    if (saved) return JSON.parse(saved);
+    return EGYPT_GOVERNORATES.map(gov => ({ 
+      governorate: gov, 
+      cost: gov === 'القاهرة' || gov === 'الجيزة' ? 50 : 65 
+    }));
+  });
+
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persist data on change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+  }, [inventory]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SHIPPING, JSON.stringify(shippingRates));
+  }, [shippingRates]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.APP_NAME, appName);
+  }, [appName]);
 
   // Toggle Sidebar
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
@@ -54,7 +96,6 @@ const App: React.FC = () => {
     // Simulate a network check to the WhatsApp API / AI Server
     setTimeout(() => {
       setIsCheckingConnection(false);
-      // In this simulation, we toggle connection just for feedback if disconnected
       if (!isWAConnected) setIsWAConnected(true);
     }, 1500);
   };
